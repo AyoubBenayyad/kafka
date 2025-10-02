@@ -1,0 +1,168 @@
+services:
+
+  kafka-1:
+    image: bitnamilegacy/kafka
+    container_name: kafka-1
+    hostname: kafka-1
+    ports:
+      - "9092:9092"
+      - "9991:9991"
+      - "8778:8778"
+    environment:
+      - KAFKA_KRAFT_CLUSTER_ID=7b28a3db-66e4-4eb7-a534-81f4e1781ce2
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LOG_DIRS=/tmp/kraft-combined-logs
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_HEAP_OPTS=-Xmx512m -Xms512m
+      - KAFKA_JMX_PORT=9991
+      - KAFKA_JMX_HOSTNAME=kafka-1
+      - KAFKA_OPTS=-javaagent:/opt/jolokia.jar=port=8778,host=0.0.0.0
+    volumes:
+      - ./jolokia.jar:/opt/jolokia.jar  
+
+  kafka-2:
+    image: bitnamilegacy/kafka
+    container_name: kafka-2
+    hostname: kafka-2
+    ports:
+      - "9094:9092"
+      - "9992:9991"
+      - "8779:8778"
+    environment:
+      - KAFKA_KRAFT_CLUSTER_ID=7b28a3db-66e4-4eb7-a534-81f4e1781ce2
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-2:9092
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LOG_DIRS=/tmp/kraft-combined-logs
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_HEAP_OPTS=-Xmx512m -Xms512m
+      - KAFKA_JMX_PORT=9991
+      - KAFKA_JMX_HOSTNAME=kafka-2
+      - KAFKA_OPTS=-javaagent:/opt/jolokia.jar=port=8778,host=0.0.0.0
+    volumes:
+      - ./jolokia.jar:/opt/jolokia.jar  
+
+  kafka-3:
+    image: bitnamilegacy/kafka
+    container_name: kafka-3
+    hostname: kafka-3
+    ports:
+      - "9096:9092"
+      - "9993:9991"
+      - "8780:8778"
+    environment:
+      - KAFKA_KRAFT_CLUSTER_ID=7b28a3db-66e4-4eb7-a534-81f4e1781ce2
+      - KAFKA_CFG_NODE_ID=3
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka-3:9092
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LOG_DIRS=/tmp/kraft-combined-logs
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_HEAP_OPTS=-Xmx512m -Xms512m
+      - KAFKA_JMX_PORT=9991
+      - KAFKA_JMX_HOSTNAME=kafka-3
+      - KAFKA_OPTS=-javaagent:/opt/jolokia.jar=port=8778,host=0.0.0.0
+    volumes:
+      - ./jolokia.jar:/opt/jolokia.jar  
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpass
+      - DOCKER_INFLUXDB_INIT_ORG=my-org
+      - DOCKER_INFLUXDB_INIT_BUCKET=kafka_metrics
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-token
+
+  telegraf:
+    image: telegraf:1.30
+    container_name: telegraf
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+      - influxdb
+    volumes:
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+
+
+  init-producer:
+    build:
+      context: ./init-producer
+    environment:
+      - BROKER=kafka-1:9092
+      - TOPIC=weather
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+
+  consumer-1:
+    build: ./init-consumer
+    environment:
+      BROKER: kafka-1:9092
+      TOPIC: weather
+      GROUP_ID: weather-group
+      CLIENT_ID: consumer-1
+
+  consumer-2:
+    build: ./init-consumer
+    environment:
+      BROKER: kafka-1:9092
+      TOPIC: weather
+      GROUP_ID: weather-group
+      CLIENT_ID: consumer-2
+
+  consumer-3:
+    build: ./init-consumer
+    environment:
+      BROKER: kafka-1:9092
+      TOPIC: weather
+      GROUP_ID: weather-group
+      CLIENT_ID: consumer-3
+
+  consumer-4:
+    build: ./init-consumer
+    environment:
+      BROKER: kafka-1:9092
+      TOPIC: weather
+      GROUP_ID: weather-group
+      CLIENT_ID: consumer-4
+
+  topic-init:
+    build:
+      context: ./topic-init
+    environment:
+      - KAFKA_BROKER=kafka-1:9092   # ou ton bootstrap préféré
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: kafdrop
+    ports:
+      - "9000:9000"
+    environment:
+      - KAFKA_BROKERCONNECT=kafka-1:9092,kafka-2:9092,kafka-3:9092
+      - SERVER_PORT=9000
+      - JVM_OPTS=-Xms128M -Xmx512M
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3

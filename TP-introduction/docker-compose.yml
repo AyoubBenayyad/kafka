@@ -1,0 +1,175 @@
+#version: "3.8"
+
+volumes:
+  influxdb-data:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
+
+services:
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpass
+      - DOCKER_INFLUXDB_INIT_ORG=myorg
+      - DOCKER_INFLUXDB_INIT_BUCKET=weather
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mytoken
+    healthcheck:
+      test: ["CMD", "curl", "-s", "http://localhost:8086/health"]
+      interval: 5s
+      retries: 20
+      start_period: 10s
+    networks: [kafka-net]
+    
+  kafka1:
+    image: bitnamilegacy/kafka
+    container_name: kafka1
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_KRAFT_CLUSTER_ID=kraft-cluster
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://kafka1:9092,CONTROLLER://kafka1:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka1:9092
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+    volumes:
+      - kafka1-data:/bitnami/kafka
+
+    networks: [kafka-net]
+
+  kafka2:
+    image: bitnamilegacy/kafka
+    container_name: kafka2
+    environment:
+      - KAFKA_KRAFT_CLUSTER_ID=kraft-cluster
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://kafka2:9092,CONTROLLER://kafka2:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka2:9092
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+    volumes:
+      - kafka2-data:/bitnami/kafka
+    networks: [kafka-net]
+
+  kafka3:
+    image: bitnamilegacy/kafka
+    container_name: kafka3
+    environment:
+      - KAFKA_KRAFT_CLUSTER_ID=kraft-cluster
+      - KAFKA_CFG_NODE_ID=3
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://kafka3:9092,CONTROLLER://kafka3:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka3:9092
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+    volumes:
+      - kafka3-data:/bitnami/kafka
+    networks: [kafka-net]
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:4.2.0
+    container_name: kafdrop
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: kafka1:9092,kafka2:9092,kafka3:9092
+      JVM_OPTS: "-Xms64M -Xmx512M"
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    networks:
+      - kafka-net
+
+  telegraf:
+    build: ./telegraf
+    container_name: telegraf
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    networks: [kafka-net]
+
+  init-topic-telegraf:
+    image: bitnamilegacy/kafka
+    depends_on: [kafka1]
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      until kafka-topics.sh --bootstrap-server kafka1:9092 --list > /dev/null 2>&1; do
+        sleep 2
+      done
+      kafka-topics.sh --bootstrap-server kafka1:9092 --create --if-not-exists --topic weather-telegraf --partitions 4 --replication-factor 3
+      "
+    networks: [kafka-net]
+
+  inject:
+    build: ./inject
+    depends_on: [influxdb]
+    environment:
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=mytoken
+      - INFLUX_ORG=myorg
+      - INFLUX_BUCKET=weather
+      - INTERVAL_SECONDS=5
+    networks: [kafka-net]
+
+  producer:
+    build: ./producer
+    depends_on: [influxdb, kafka1, kafka2, kafka3]
+    environment:
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=mytoken
+      - INFLUX_ORG=myorg
+      - INFLUX_BUCKET=weather
+      - INTERVAL_SECONDS=5
+      - KAFKA_BOOTSTRAP=kafka1:9092,kafka2:9092,kafka3:9092
+      - KAFKA_TOPIC=weather
+    networks: [kafka-net]
+
+  init-topic:
+    image: bitnamilegacy/kafka
+    depends_on: [kafka1]
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      until kafka-topics.sh --bootstrap-server kafka1:9092 --list > /dev/null 2>&1; do
+        sleep 2
+      done
+      kafka-topics.sh --bootstrap-server kafka1:9092 --create --if-not-exists --topic weather --partitions 4 --replication-factor 3
+      "
+    networks: [kafka-net]
+
+  init-alert:
+    build:
+      context: ./init-alert
+    depends_on:
+      - influxdb
+      - kafka1
+      - kafka2
+      - kafka3
+      - kafdrop
+    networks:
+      - kafka-net
+    environment:
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=mytoken
+      - ORG=myorg
+
+
+networks:
+  kafka-net:
