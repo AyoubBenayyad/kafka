@@ -1,13 +1,13 @@
 # TP — Traitement de flux avec ksqlDB (pas à pas, pédagogique)
 
 Ce TP fait pratiquer **les fondamentaux de ksqlDB** : création de streams/tables, clés et (re)partitionnement, fenêtres (tumbling/hopping), agrégations, **PUSH vs PULL queries**, **JOIN** stream‑table, introspection et nettoyage.  
-Exemple fil rouge : un flux de températures par ville publié dans Kafka (`temperatures`).
+Exemple fil rouge : un flux de températures par ville publié dans le topic Kafka (`temperatures`).
 
 Le matériel pédagogique du TP est dans le répertoire 1-illustration
 
 ---
 
-## 0) Prérequis et points d’accès
+## Prérequis et introduction
 
 - Concepts : 
 
@@ -198,6 +198,8 @@ puis "Run query" (bouton vert à droite)
 **Important** : en ksqlDB, la **clé logique** (KEY) gouverne les agrégations/joints.  
 Même si la valeur contient `ville`, **il faut s’assurer que la clé Kafka = ville**.
 
+- reprenez le script bash/python afin que l'insertion de messages dure l'intégralité du TP. Par exemple mettez le range à 100000 ou la valeur qui vous parait adéquate. Vous pouvez lancer le script tel quel au début de chaque besoin de visualisation plutôt que de mettre une très longue durée. A vous de voir.
+
 - **Stream brut** mappé sur le topic :
 
 ```sql
@@ -219,9 +221,9 @@ select * from S_TEMPS_RAW;
 ```
   - Que voyez vous apparaitre ?
   
-  - Recherchez la syntaxe pour sélectionner tous les enregistrements pour la ville de Paris
+  - Recherchez la syntaxe pour sélectionner tous les enregistrements pour la ville de Paris et mettez là en oeuvre. 
 
-  - Si vous lancez l'émission de nouveaux messages dans ce topic et que vous relanciez en même temps l'affichage de ```sql select * from S_TEMPS_RAW; ```. Comment faire pour avoir tous les enregistrements depuis le début ? 
+  - Lancez la requête suivante : ```sql select * from S_TEMPS_RAW; ```. Comment la transformer pour avoir tous les enregistrements depuis le début ?  
 
 
 - A partir du précédent STREAM on va créer un topic et un stream basés sur le stream précédent mais ayant pour clé "ville". 
@@ -250,7 +252,7 @@ DESCRIBE  S_TEMPS_BY_VILLE;
 
 ---
 
-## 4) Réalisation de Fenêtres et et d'agrégations (TUMBLING)
+## 4) Réalisation de Fenêtres et d'agrégations (TUMBLING)
 
 Créons une table matérialisée des **maximas sur 5 minutes** par ville :
 
@@ -309,7 +311,7 @@ EMIT CHANGES;
 
 ## 7) HOPPING windows (option)
 
-Le **TUMBLING** est une fenêtre glissante au fur et à mesure du passage du temps. Le **HOPPING** est une fenêtre glissante par pas ou sauts.
+Le **TUMBLING** est une fenêtre glissante au fur et à mesure du passage du temps. Le **HOPPING** est une fenêtre glissante sauts.
 
 Fenêtre glissante de 10 min, **saut** de 2 min :
 
@@ -330,12 +332,8 @@ Mettez en oeuvre le HOPPING tel que décrit ci-dessus. Montrez l'évolution de l
 
 ---
 
-## 12) Petit projet pour aller plus loin
+## 8) Petit projet pour aller plus loin
 
-Crée une table par HOPPING sur 10 minutes qui avance par pas de 2 minutes. Cette table
+  Ecrivez un petit programme, le plus symple possible en python/ksqldb, qui interrogera le topic ```temperature```. Il sera alimenté par le script bash/python vu précédement. Il affichera la moyenne courante des températures pour la ville de Paris, l'écart-type courant s'il y a un changement pour l'une ou l'autre de ces valeurs. Si la dernière valeur de température pour Paris sort de l'écart-type alors il faudra l'indiquer une alerte et bien entendu continuer le processus précédent.
 
-1. Ajoute une **détection d’anomalies** : `WHERE t NOT BETWEEN -30 AND 55`.
-2. Calcule un **z‑score** par ville sur une fenêtre glissante et alerte si `|z| > 3`.
-3. Matérialise un **TOP‑N** des villes les plus chaudes sur 30 min (fenêtres HOPPING).
-4. Expose les dernières valeurs via **PULL** (script REST cURL) pour une intégration dashboard.
-
+  Si vous le souhaitez vous pouvez vous inspirer des deux premiers TP pour enregistrer ces informations et alertes dans un influxdb et avoir un dashboard qui matérialise tout cela :) 
