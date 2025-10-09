@@ -24,6 +24,10 @@ Sauf information dispensée autrement voici les contraintes temporelles de rendu
 
         Rendu du TP 3 : au plus tard le 29 novembre à 20h00.
 
+- TP 4 : à faire à la maison
+
+        Rendu mi-décembre.
+
 Le premier TP est à faire sur un délai plus long afin de vous laisser le temps de vous familiariser avec les notions de Kafka. 
 
 Ces TP sont faisables dans la plupart des environnements. Ils sont faits pour fonctionner avec les machines virtuelles du service informatique de l'ISIMA. 
