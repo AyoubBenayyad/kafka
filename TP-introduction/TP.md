@@ -85,7 +85,7 @@ Partie  : Aller plus loin
 
 	19. Proposez des voies d'amélioration de cette application de démonstration. 
 	20. Pourquoi le code python est encapsulé dans un container ? 
-	21. Corrigez l'organigramme du fichier README.md si vous le jugez nécessaire.
+	21. Corrigez l'organigramme du fichier schema.md si vous le jugez nécessaire.
   
 
 
