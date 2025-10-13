@@ -34,7 +34,7 @@ Ces TP sont faisables dans la plupart des environnements. Ils sont faits pour fo
 
 La documentation des machines virtuelles de l'ISIMA => https://doc.isima.fr/my/vm/
 
-Les TP 2 et 3 peuvent être rendus plus rapidement que prévu si cela vous arrange.
+Les TP 2 et 4 peuvent être rendus plus rapidement que prévu si cela vous arrange.
 
 ## Environnement d'exécution des TP 
 
