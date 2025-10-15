@@ -18,7 +18,7 @@ Avoir installé :
 Les versions des images suivantes sont requises : 
 
 ```bash
-docker pull bitnami/kafka:4.0.0
+docker pull bitnamilegacy/kafka
 docker pull obsidiandynamics/kafdrop:4.2.0
 docker pull influxdb:2.7
 docker pull alpine:3.19
