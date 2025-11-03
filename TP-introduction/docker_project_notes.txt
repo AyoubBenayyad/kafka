@@ -1,0 +1,67 @@
+Partie 1
+
+1. Commande :
+   docker compose up
+
+2. Observation :
+   On constate le lancement des services Docker un par un. Telegraf envoie des données vers outputs.file et outputs.kafka.
+
+3. Description des services :
+   - influxdb : Base de données time-series (stocke les données météo). Reste actif pour les écritures et lectures permanentes.
+   - kafka1, kafka2, kafka3 : Les trois brokers Kafka forment un cluster distribué. Ils gèrent la réception, la réplication et la distribution des messages entre producteurs et consommateurs.
+   - kafdrop : Interface web permettant de visualiser les topics, messages et partitions Kafka. Doit rester accessible.
+   - telegraf : Agent de collecte de métriques qui envoie continuellement des données à Kafka et à des fichiers.
+   - inject : Service qui envoie périodiquement des données dans InfluxDB (toutes les 5 secondes selon INTERVAL_SECONDS).
+   - producer : Service qui lit dans InfluxDB et envoie les données vers Kafka. Fonctionne de manière continue.
+   - init-alert : Service qui surveille les métriques et crée des alertes selon la logique interne du code (./init-alert).
+
+4. Services d’initialisation :
+   - init-topic : Attend que Kafka soit prêt, puis crée le topic weather (4 partitions, réplication x3) et s’arrête ensuite.
+   - init-topic-telegraf : Fait la même chose pour le topic weather-telegraf, puis s’éteint.
+
+
+Partie 2
+
+1. Fonctionnement de Telegraf :
+   Il reçoit les métriques depuis InfluxDB (via HTTP sur le port 8186), puis les transfère à Kafka et les affiche dans la console (stdout).
+
+2. Flux de données :
+   - InfluxDB reçoit des données météo (température, humidité…).
+   - À chaque nouvelle donnée, InfluxDB envoie un message à Telegraf.
+   - Telegraf transmet ce message à Kafka.
+
+3. Kafka :
+   Il crée un topic weather pour stocker les données reçues.
+
+
+Partie 3
+
+1. Mappage des ports :
+   - influxDB : 8086:8086
+   - kafka1 : 9092:9092
+   - kafka2 et kafka3 : pas de ports mappés
+
+2. Détails des ports :
+   - kafka3 : 9092 (échange de messages avec les applications), 9093 (coordination interne entre serveurs Kafka)
+   - influxDB : 8086 (API + interface web)
+
+
+Partie 4
+
+1. Service InfluxDB :
+   Lors du premier démarrage, InfluxDB détecte le mode setup et crée automatiquement :
+   - Un utilisateur administrateur
+   - Une organisation
+   - Un bucket par défaut
+
+2. Sécurité :
+   Il est possible d’utiliser un coffre-fort pour stocker les identifiants et tokens sensibles.
+3. kafdrop : http://localhost:9000/
+
+4 : Le conteneur init-topic les définit ici :
+	kafka-topics.sh --bootstrap-server kafka1:9092 \
+  	--create --if-not-exists \
+  	--topic weather \
+  	--partitions 4 \
+  	--replication-factor 3
+
